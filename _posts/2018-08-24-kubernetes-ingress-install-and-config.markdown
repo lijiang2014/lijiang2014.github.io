@@ -30,7 +30,7 @@ kubectl describe secret default-server-secret --namespace=nginx-ingress
 
 kubectl get DaemonSet --namespace=nginx-ingress
 ```
-
+>  common/default-server-secret.yaml.H 是 由 原来的 common/default-server-secret.yaml 删除了 最后两行得到的文件
 >  k8s secret 需要base64 编码且只能有一行
 
 2. 暴露自己需要的服务 
