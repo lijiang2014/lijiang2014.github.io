@@ -35,3 +35,69 @@ kubectl get DaemonSet --namespace=nginx-ingress
 
 2. 暴露自己需要的服务 
 
+我这里需要暴露的主要是网站服务，另外有一个非内部管理的服务也需要通过 此域名对外暴露
+
+```
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: sl-web-ui
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.org/websocket-services: "sl-web-ui"
+    nginx.ingress.kubernetes.io/compute-full-forwarded-for: "true"
+spec:
+  tls:
+  - hosts:
+    - starlights.nscc-gz.cn
+    secretName: starlights-secret
+  rules:
+  - host: starlights.nscc-gz.cn
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: sl-web-ui
+          servicePort: 80
+      - path: /api/guacamole/
+        backend:
+          serviceName: guacamole-proxy
+          servicePort: 80
+
+---
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: guacamole-proxy
+spec:
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8088
+  externalIPs:
+  - 10.127.48.18
+---
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: guacamole-proxy
+subsets:
+  - addresses:
+      - ip: 10.127.48.18
+    ports:
+      - port: 8088
+```
+
+这里通过直接配置 endpoint 的方式来设置非通过 kubernetes 部署的服务.
+
+但是如此设置后发现未能生效，后来进入 nginx-ingress 的 pod 中查看，可以发现 nginx 的配置文件并未按照预先设想的方式产生，有两处配置没有生效：
+
+* `rewrite` 没有生效 
+* `proxy_buffer ` 按照nginx ingress 的文档默认应该是 off , 但实际发现不知为何成了 on 
+
+目前通过手动修复 nginx-ingress pods 中的 nginx conf 文件并reload 的方式使得服务成功部署了，但是如果更新 ingress 设置后 ， conf 会如何变化尚未知晓，还是得多检测 nginx conf 文件的变化 ， 说明文档未必完全可信
+
+
+
+
