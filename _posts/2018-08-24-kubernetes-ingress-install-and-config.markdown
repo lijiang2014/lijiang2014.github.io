@@ -9,8 +9,49 @@ categories: share
  
  ingress 并非默认组件，需要额外安装 Ingress controller , 有多种选择， 这里选择的是 ingress nginx controller.
  
- [ingress nginx controller. ](https://www.nginx.com/products/nginx/kubernetes-ingress-controller/) 的安装需要下载链接中的 [github repo](https://github.com/nginxinc/kubernetes-ingress), 默认的安装过程参考 其中的 [install/README.md](https://github.com/nginxinc/kubernetes-ingress/blob/master/install/README.md) 即可
- 
+ ingress nginx controller 目前有两个主流的版本，相互之间有一定差异，需要注意选择：
+
+* [nginxinc/kubernetes-ingress](https://github.com/nginxinc/kubernetes-ingress) ,nginx 提供的版本，基础版可以很简单的安装，但功能较弱，可以先拿来熟悉 ingress , [安装过程](https://github.com/nginxinc/kubernetes-ingress/blob/master/install/README.md)
+
+* [kubernetes/ingress-nginx](https://github.com/kubernetes/ingress-nginx) , kubernetes 提供的版本，需要根据自己的集群修改配置，[安装过程](https://kubernetes.github.io/ingress-nginx/deploy/)
+
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
+kubectl get pods --all-namespaces -l app.kubernetes.io/name=ingress-nginx --watch
+POD_NAMESPACE=ingress-nginx
+POD_NAME=$(kubectl get pods -n $POD_NAMESPACE -l app.kubernetes.io/name=ingress-nginx -o jsonpath={.items[0].metadata.name})
+kubectl exec -it $POD_NAME -n $POD_NAMESPACE -- /nginx-ingress-controller --version
+``` 
+
+默认的 配置在自己的kubernetes 集群上使用可能会有问题，针对我的场景，由于不是AWS这种提供了LoadBalence 的平台，所以采用 DaemonSet 的方式进行部署, 对mandatory.yaml 进行了修改：
+
+```
+apiVersion: extensions/v1beta1
+#kind: Deployment
+kind: DaemonSet
+metadata:
+  name: nginx-ingress-controller
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+spec:
+  #replicas: 1
+  ...
+            #- --publish-service=$(POD_NAMESPACE)/ingress-nginx
+  ...
+            ports:
+          - name: http
+            containerPort: 80
+            hostPort: 80
+          - name: https
+            containerPort: 443
+            hostPort: 443
+```
+
+
+
+
  在安装完后，有些配置需要做响应的调整 ：
  
  1. 更新证书
